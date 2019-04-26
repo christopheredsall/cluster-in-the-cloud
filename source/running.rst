@@ -139,6 +139,54 @@ i.e. don't use ``yum install`` to provide dependencies.
 
 Consider using a tool like `EasyBuild <https://easybuild.readthedocs.io>`_ or `Spack <https://spack.io/>`_ to manage you software stack.
 
+Installing software with spack
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+We will make use of the ``devtoolset`` installed to use an up to date compiler
+and base the spack installation off that.
+
+.. code-block:: shell-session
+
+   [opc@mgmt ~]$ scl enable devtoolset-8 bash
+   [opc@mgmt ~]$ sudo mkdir /mnt/shared/spack
+   [opc@mgmt ~]$ sudo chown opc /mnt/shared/spack
+   [opc@mgmt ~]$ cd /mnt/shared/
+   [opc@mgmt shared]$ git clone https://github.com/spack/spack.git
+   [opc@mgmt shared]$ . spack/share/spack/setup-env.sh
+
+Depending on the size of your managment and compute nodes it may be quicker to
+submit the builds as a slurm job. E.g.
+
+.. code-clock:: shell-session
+
+   [opc@mgmt ~]$ cat > spack-build-openmpi.slm << ENDOFJOB
+   #! /bin/bash
+   
+   #SBATCH --job-name=spack-build-openmpi
+   #SBATCH --nodes=1
+   #SBATCH --cpus-per-task=1
+   #SBATCH --time=02:00:00
+   
+   # Install Sofware Collecitons Devtoolset on compute node
+   sudo yum --assumeyes install devtoolset-8 patch || /usr/bin/true
+   scl enable devtoolset-8 bash
+   
+   # Source the Spack environment
+   . /mnt/shared/spack/share/spack/setup-env.sh
+   
+   # Work around issue with locking on Oracle NFS
+   cat > ~/.spack/config.yaml << EOT
+   ---
+   config:
+     locks: false
+   EOT
+   
+   # Build openmpi and all it's dependancies
+   spack compiler find /opt/rh/devtoolset-8/root/usr/bin/gcc
+   spack install openmpi
+   ENDOFJOB
+   [opc@mgmt ~]$ sbatch spack-build-openmpi.slm
+
 Monitoring
 ----------
 
